@@ -1,0 +1,276 @@
+
+/*
+----------------------------CONSIGNA PARCIAL PARTE 3---------------------------------------------
+1. Considerando el último número de tu número de documento (DNI o documento de
+identidad), agrega un componente adicional que afecte el funcionamiento del proyecto.
+Describe en detalle qué hace este nuevo componente y cómo se integra en el proyecto.
+
+-Si tu número de documento termina en (0-3) deberás implementar a tu proyecto la
+fotoresistencia
+-Si tu número de documento termina en (4-6) deberás implementar a tu proyecto la
+Fotodiodo.
+-Si tu número de documento termina en (7-9) deberás implementar a tu proyecto el
+sensor de luz ambiental.
+-------------------------------------------------------------------------------------------------
+*/
+
+/*
+   Proyecto: Contador con dos displays, motor CC, sensor de temperatura, sensor de luz ambiental y numeros primos
+   Autor: Facundo Chiappa
+   Fecha de Creación: 09/10/2023
+   Descripción: Este código Arduino controla un contador con un display de 7 segmentos.
+                Permite aumentar, disminuir y resetear el contador.
+                A su vez, el sensor de temperatura y el de luz ambiental se complementan para controlar la velocidad
+                del motor CC.
+*/
+
+// Las declaraciones `#define` al principio del código se utilizan para definir constantes. En este caso, definen números de pin para varios componentes y botones utilizados en el código. Por ejemplo, `#define G 2` significa que la constante `G` se define como el valor 2. Esto permite una legibilidad y comprensión más sencilla del código, ya que se puede hacer referencia a los números de pin por sus nombres en lugar de sus valores numéricos. a lo largo del código.
+#define G 2
+#define F 3
+#define A 4
+#define B 5
+#define C 6
+#define D 7
+#define E 8
+
+#define MOTOR 9
+
+#define SENSOR_TEMP A0
+#define FOTOTRANSISTOR A1  
+
+#define SWITCH 13 
+#define BOTON_SUBIR 12
+#define BOTON_BAJAR 11
+#define BOTON_RESET 10
+
+// Estas líneas declaran e inicializan variables enteras.
+int contador = 0;
+int sube = 1;
+int baja = 1;
+int reset = 1;
+int subeprevia = 1;
+int bajaprevia = 1;
+int resetprevia = 1;
+
+
+// Estas son declaraciones de funciones. Definen los nombres, parámetros y tipos de retorno de funciones que se implementarán más adelante en el código.
+void configurar_displays(int numero);
+void prende_numero(int numero);
+void configurar_estado_leds(int a, int b, int c,
+                        int d, int e, int f, int g);
+void control_botones(int numero);
+void encender_motor(int temperatura, int luz, int contador);
+bool chequear_primo(int contador);
+int devolver_numero_primo(int contador,int boton);
+int calcular_contador(int contador, int presionado, int valorInterruptor);
+
+
+
+// La función `void setup()` es una función especial en Arduino que se llama una vez cuando se inicia el programa. Se utiliza para inicializar la placa Arduino y realizar las configuraciones necesarias.
+void setup()
+{
+  for (int i = 2; i < 9; i++)
+  {
+    pinMode(i, OUTPUT);
+  }
+  pinMode(A4, OUTPUT);
+  pinMode(A5, OUTPUT);
+  pinMode(MOTOR, OUTPUT);
+  pinMode(BOTON_SUBIR,INPUT_PULLUP);
+  pinMode(BOTON_BAJAR,INPUT_PULLUP);
+  pinMode(BOTON_RESET,INPUT_PULLUP);
+  Serial.begin(9600);
+}
+
+// La función `void loop()` es la función principal que se ejecuta repetidamente en el código Arduino. Se encarga de leer los valores de los sensores, actualizar la pantalla y controlar el motor en función de la temperatura, la intensidad de la luz y el valor actual de la variable `contador`.
+void loop()
+{
+  int lecturaSensor = analogRead(SENSOR_TEMP);
+  int temperatura = map(lecturaSensor,20,358,-40,125);
+  int lecturaFototransistor = analogRead(FOTOTRANSISTOR);
+  int luz = map(lecturaFototransistor, 13, 1023, 0, 1000);
+  int valorInterruptor = digitalRead(SWITCH);
+  configurar_displays(contador);
+  int presionado = control_botones();
+  contador = calcular_contador(contador, presionado, valorInterruptor);
+  if(valorInterruptor)
+  {
+  	encender_motor(temperatura, luz, contador);
+  }
+  else 
+  {
+    analogWrite(MOTOR, LOW);
+  }
+}
+
+// La función `encender_motor` se encarga de controlar el motor en función de la temperatura, intensidad de la luz y el valor actual de la variable `contador`.
+void encender_motor(int temperatura, int luz, int contador)
+{
+  if(temperatura > contador)
+  {
+    analogWrite(MOTOR, 150);
+    if(luz < 4 || temperatura - contador > 20)
+    {
+      analogWrite(MOTOR, 255);
+    }
+  }
+  else
+  {
+    analogWrite(MOTOR, LOW);
+  }
+}
+
+
+// La función `calcular_contador` se encarga de calcular el nuevo valor de la variable `contador` en base al botón presionado (`presionado`) y el valor de la variable `valorInterruptor`.
+int calcular_contador(int contador, int presionado, int valorInterruptor)
+{
+  if ((presionado == BOTON_SUBIR) && contador < 99)
+  {
+  	contador++;
+  }else if ((presionado == BOTON_BAJAR) && contador > 0)
+  {
+  	contador--;
+  }else if (presionado == BOTON_RESET){
+  	contador = 0;
+  }
+  if(valorInterruptor == 0)
+    {
+    contador = devolver_numero_primo(contador, presionado);
+    }
+  return contador;
+}
+
+
+// La función `chequear_primo` comprueba si un número dado es primo o no. Toma un número entero `contador` como entrada y devuelve un valor booleano `esPrimo` que indica si el número es primo o no. Lo hace iterando de 2 a `contador-1` y verificando si `contador` es divisible por alguno de los números en ese rango. Si es divisible por cualquier número, `esPrimo` se establece en falso y se sale del ciclo.
+bool chequear_primo(int contador)
+{
+  bool esPrimo = true;
+  for (int divisor = 2; divisor < contador ;divisor++)
+  {
+    if ((contador % divisor) == 0)
+    {
+      esPrimo = false;
+      break;
+    }
+  }
+  return esPrimo;
+}
+
+// La función `devolver_numero_primo` toma dos parámetros: `contador` y `boton`. Primero verifica si el valor actual de `contador` es un número primo llamando a la función `chequear_primo`. Si `contador` no es un número primo, entra en un bucle while.
+int devolver_numero_primo(int contador,int boton)
+{
+  bool esPrimo = chequear_primo(contador);
+  while (esPrimo == false)
+  {
+    if (boton == BOTON_SUBIR)
+    {
+      contador++;
+    }else 
+    {
+      contador--;
+    }
+    esPrimo = chequear_primo(contador);
+  }
+  return contador;
+}
+
+// La función `void prende_numero(int numero)` es responsable de configurar el estado de los segmentos LED para mostrar un dígito específico en una pantalla de siete segmentos. Toma un número entero como entrada, que representa el dígito que se mostrará.
+void prende_numero(int numero)
+{
+  switch (numero){
+    case 0:
+    	configurar_estado_leds(1, 1, 1, 1, 1, 1, 0);
+    	break;
+    case 1:
+    	configurar_estado_leds(0, 1, 1, 0, 0, 0, 0);
+    	break;
+    case 2:
+    	configurar_estado_leds(1, 1, 0, 1, 1, 0, 1);
+    	break;
+    case 3:
+    	configurar_estado_leds(1, 1, 1, 1, 0, 0, 1);
+    	break;
+    case 4:
+    	configurar_estado_leds(0, 1, 1, 0, 0, 1, 1);
+    	break;
+    case 5:
+    	configurar_estado_leds(1, 0, 1, 1, 0, 1, 1);
+    	break;
+    case 6:
+   		configurar_estado_leds(1, 0, 1, 1, 1, 1, 1);
+    	break;
+    case 7:
+    	configurar_estado_leds(1, 1, 1, 0, 0, 0, 0);
+    	break;
+    case 8:
+    	configurar_estado_leds(1, 1, 1, 1, 1, 1, 1);
+    	break;
+    case 9:
+    	configurar_estado_leds(1, 1, 1, 1, 0, 1, 1);
+    	break;
+  }
+}
+
+
+// La función `configurar_estado_leds` se utiliza para configurar el estado de los segmentos LED para una pantalla de siete segmentos. Se necesitan siete argumentos enteros `a`, `b`, `c`, `d`, `e`, `f` y `g`, que representan el estado de cada segmento. Luego, la función utiliza la función `digitalWrite` para configurar los pines correspondientes `A`, `B`, `C`, `D`, `E`, `F` y `G` al estado especificado. Esta función se utiliza junto con la función `prende_numero` para mostrar un dígito específico en la pantalla de siete segmentos.
+void configurar_estado_leds(int a, int b, int c,
+                        int d, int e, int f, int g)
+{
+  digitalWrite(A, a);
+  digitalWrite(B, b);
+  digitalWrite(C, c);
+  digitalWrite(D, d);
+  digitalWrite(E, e);
+  digitalWrite(F, f);
+  digitalWrite(G, g);
+}
+
+// La función `configurar_displays` se encarga de mostrar un número en dos displays de 7 segmentos. Toma un número entero como entrada y lo separa en sus unidades y decenas de dígitos. Luego activa los segmentos apropiados en las pantallas para representar el dígito de las unidades y el dígito de las decenas. La función utiliza la función `prende_numero` para establecer el estado de los segmentos LED para cada dígito.
+void configurar_displays(int numero)
+{
+  int unidad = numero - ((int)(numero/10)*10);
+  digitalWrite(A4, LOW);
+  prende_numero(unidad);
+  delay(50);
+  digitalWrite(A4, HIGH);
+  int decena = numero/10;
+  digitalWrite(A5, LOW);
+  prende_numero(decena);
+  delay(50);
+  digitalWrite(A5, HIGH);
+}
+
+// La función `control_botones` se encarga de leer el estado de tres botones (`BOTON_SUBIR`, `BOTON_BAJAR`, `BOTON_RESET`) y devolver el botón que fue presionado.
+int control_botones(){
+  int sube = digitalRead(BOTON_SUBIR);
+  int baja = digitalRead(BOTON_BAJAR);
+  int reset = digitalRead(BOTON_RESET);
+    
+  if (sube == 1)
+  {
+    subeprevia = 1;
+  }
+  if (baja == 1)
+  {
+    bajaprevia = 1;
+  }
+  if (reset == 1)
+  {
+    resetprevia = 1;
+  }
+  
+  if (sube == 0 && sube != subeprevia)
+  {
+  	subeprevia = sube;
+   	return BOTON_SUBIR;
+  }else if (baja == 0 && baja != bajaprevia)
+  {
+  	bajaprevia = baja;
+    return BOTON_BAJAR;
+  }else if (reset == 0 && reset != resetprevia)
+  {
+  	resetprevia = reset;
+    return BOTON_RESET;
+  }
+  return 0;
+}

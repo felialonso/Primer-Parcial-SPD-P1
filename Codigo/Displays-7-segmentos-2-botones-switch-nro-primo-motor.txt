@@ -1,0 +1,462 @@
+/*
+----------------------------CONSIGNA PARCIAL PARTE 2---------------------------------------------
+Modifica el proyecto de la Parte 1 de la siguiente manera:
+1. Sustituye uno de los botones por un interruptor deslizante (switch) de dos posiciones.
+Dependiendo de la posición del interruptor, el display debe mostrar o bien el contador (como
+en la Parte 1) o los números primos en el rango de 0 a 99.
+
+2. Investiga un componente electrónico adicional que podría mejorar este proyecto.
+Proporciona una descripción detallada del componente, su función y cómo se podría
+integrar en el proyecto.
+
+-Motor de cc
+-Motor de aficionado
+
+Investigar en la semana y agregar uno de los siguientes componentes
+
+-Sensor de flexión
+-Sensor de fuerza
+-Sensor de temperatura
+-------------------------------------------------------------------------------------------------
+*/
+
+/*
+   Proyecto: Contador con dos displays, motor CC, sensor de temperatura, sensor de luz ambiental y numeros primos
+   Autor: Facundo Chiappa
+   Fecha de Creación: 03/10/2023
+   Descripción: Este código Arduino controla un contador con un display de 7 segmentos.
+                Permite aumentar y disminuir el contador.
+                A su vez, un boton deslizante el cual segun donde este, es si muestra el contador normal o solo
+                los numeros primos y un sensor de temperatura que ayuda a manejar el motor.
+*/
+
+// Estas declaraciones `#define` se utilizan para definir constantes en el código. Asignan un nombre a un valor específico, lo que hace que el código sea más legible y fácil de mantener.
+#define A 10
+#define B 11
+#define C 5
+#define D 6
+#define E 7
+#define F 9
+#define G 8
+
+#define MODO 4
+
+#define SUBE 3
+#define BAJA 2
+
+#define UNIDAD A4
+#define DECENA A5
+
+#define ENTRADA_UNO_MOTOR A3
+#define ENTRADA_DOS_MOTOR A2
+
+#define SENSOR_TEMPERATURA A1
+
+#define APAGADOS 0
+#define TIEMPO_DISPAY_ON 10
+
+// Estas son declaraciones de variables en el código. Se utilizan para almacenar y manipular diferentes valores a lo largo del programa.
+int contadorDecena = 0;
+int contadorUnidad = 0;
+
+int contadorPrimos = 0;
+
+int noPresionoSube;
+int noPresionoBaja;
+
+bool banderaSwitch = false;
+
+bool banderaPrendido = false;
+
+int opcion;
+
+int temperatura = 0;
+int lectura = 0;
+
+// La función `void setup()` es una función especial en Arduino que se llama una vez cuando se inicia el programa. Se utiliza para inicializar los ajustes y configuraciones de la placa Arduino y cualquier componente conectado.
+void setup()
+{
+  pinMode(A, OUTPUT);
+  pinMode(B, OUTPUT);
+  pinMode(C, OUTPUT);
+  pinMode(D, OUTPUT);
+  pinMode(E, OUTPUT);
+  pinMode(F, OUTPUT);
+  pinMode(G, OUTPUT);
+  
+  pinMode(MODO, INPUT_PULLUP);
+  
+  pinMode(SUBE, INPUT_PULLUP);
+  pinMode(BAJA, INPUT_PULLUP);
+  
+  pinMode(UNIDAD, OUTPUT);
+  pinMode(DECENA, OUTPUT);
+  
+  pinMode(ENTRADA_UNO_MOTOR, OUTPUT);
+  pinMode(ENTRADA_DOS_MOTOR, OUTPUT);
+    
+  Serial.begin(9600);
+  Serial.println("Ingrese una opcion:");
+  Serial.println("1 - Encender Motor");
+  Serial.println("2 - Apagar Motor");
+}
+
+// El código anterior implementa un sistema de control para un motor basado en lecturas de temperatura. Lee la temperatura de un sensor, asigna la lectura analógica a un rango de temperatura y luego verifica la entrada del usuario desde el monitor en serie. Si el usuario ingresa '1', el motor se enciende si la temperatura está dentro del rango operativo (0°C a 30°C). Si el usuario ingresa '2', el motor se apaga. Si el usuario ingresa cualquier otro valor, se imprime un mensaje de error.
+void loop()
+{
+  //Serial.println(temperatura);
+  lectura = analogRead(SENSOR_TEMPERATURA);
+  temperatura = map(lectura,20,358,-40,125);
+  
+  if (Serial.available()>0){
+    opcion = Serial.read();
+    if (opcion == '1'){
+      Serial.println("Motor prendido (Temp. Funcionamiento -> 0 C a 30 C)");
+      banderaPrendido = true;
+    }
+    else if (opcion == '2'){
+      digitalWrite(ENTRADA_UNO_MOTOR, LOW);
+      digitalWrite(ENTRADA_DOS_MOTOR, LOW);
+      
+      digitalWrite(UNIDAD, HIGH);
+      digitalWrite(DECENA, HIGH);
+      
+      Serial.println("Motor apagado");
+      banderaPrendido = false;
+    }
+    else {
+      Serial.println("INVALIDO, Ingrese opcion corecta");
+    }
+  }
+  
+  if (banderaPrendido)
+  {
+    int sube = digitalRead(SUBE);
+    int baja = digitalRead(BAJA);
+    int modo = digitalRead(MODO);
+
+    switch (modo){
+      case 1:
+      if (temperatura >= 0 && temperatura <= 30)
+      {
+        digitalWrite(ENTRADA_UNO_MOTOR, HIGH);
+        digitalWrite(ENTRADA_DOS_MOTOR, LOW);
+      }
+      else{
+        digitalWrite(ENTRADA_UNO_MOTOR, LOW);
+      	digitalWrite(ENTRADA_DOS_MOTOR, LOW);
+      }
+      
+      banderaSwitch = true;
+      // Control del boton Sube
+      if (sube == 1)
+      {
+        noPresionoSube = 1;
+      }
+      if (sube == 0 && noPresionoSube == 1)
+      {
+        noPresionoSube = 0;
+        contadorPrimos += 1;
+        while (esPrimo(contadorPrimos) == false)
+        {
+          contadorPrimos += 1;
+        }
+      }
+
+      // Control del boton Baja
+      if (baja == 1)
+      {
+        noPresionoBaja = 1;
+      }
+      if (baja == 0 && noPresionoBaja == 1)
+      {
+        noPresionoBaja = 0;
+        contadorPrimos -= 1;
+        while (esPrimo(contadorPrimos) == false)
+        {
+          contadorPrimos -= 1;
+        }
+      }
+
+      // Se controla el rango
+      if(contadorPrimos > 97)
+      {
+        contadorPrimos = 0;
+      }
+      else if(contadorPrimos < 0)
+      {
+        contadorPrimos = 97;
+      }
+
+      numeroPrimoDisplay(contadorPrimos);
+      imprimirDisplay(contadorDecena, contadorUnidad);
+      break;
+
+      case 0:
+      if (temperatura >= 0 && temperatura <= 30)
+      {
+        digitalWrite(ENTRADA_UNO_MOTOR, LOW);
+        digitalWrite(ENTRADA_DOS_MOTOR, HIGH);
+      }
+      else{
+        digitalWrite(ENTRADA_UNO_MOTOR, LOW);
+      	digitalWrite(ENTRADA_DOS_MOTOR, LOW);
+      }
+
+      if (banderaSwitch)
+      {
+        contadorDecena = 0;
+        contadorUnidad = 0;
+        banderaSwitch = false;
+      }
+      // Control del boton Sube
+      if (sube == 1)
+      {
+        noPresionoSube = 1;
+      }
+      if (sube == 0 && noPresionoSube == 1)
+      {
+        noPresionoSube = 0;
+        contadorDecena += 1;
+        contadorUnidad += 10;
+      }
+
+      // Control del boton Baja
+      if (baja == 1)
+      {
+        noPresionoBaja = 1;
+      }
+      if (baja == 0 && noPresionoBaja == 1)
+      {
+        noPresionoBaja = 0;
+        contadorDecena -= 1;
+        contadorUnidad -= 10;
+      }
+
+      // Se controla el rango -> Decena
+      if(contadorDecena == 100)
+      {
+        contadorDecena = 0;
+      }
+      else if(contadorDecena == -1)
+      {
+        contadorDecena = 99;
+      }
+
+      // Se controla el rango -> Unidad
+      if(contadorUnidad == 100)
+      {
+        contadorUnidad = 0;
+      }
+      else if(contadorUnidad == -10)
+      {
+        contadorUnidad = 90;
+      }
+
+      imprimirDisplay(contadorDecena/10, contadorUnidad/10); 
+      break;
+    }
+  }
+}
+
+// El código anterior está implementando una función llamada "imprimirDisplay" que toma dos parámetros enteros: "contadorDecena" y "contadorUnidad". Esta función se encarga de imprimir los valores de estos dos contadores en un display.
+void imprimirDisplay (int contadorDecena, int contadorUnidad)
+{
+  prendeDisplay(APAGADOS);
+  imprimirDigito(contadorDecena);
+  prendeDisplay(DECENA);
+  
+  prendeDisplay(APAGADOS);
+  imprimirDigito(contadorUnidad);
+  prendeDisplay(UNIDAD);
+}
+
+void prendeDisplay (int display)
+{
+  if (display == APAGADOS)
+  {
+    digitalWrite(UNIDAD, HIGH);
+    digitalWrite(DECENA, HIGH);
+  }
+  else if (display == DECENA)
+  {
+    digitalWrite(UNIDAD, HIGH);
+    digitalWrite(DECENA, LOW);
+    delay(TIEMPO_DISPAY_ON);
+  }
+  else if (display == UNIDAD)
+  {
+    digitalWrite(UNIDAD, LOW); 
+    digitalWrite(DECENA, HIGH);
+    delay(TIEMPO_DISPAY_ON);
+  }
+}
+
+// El código anterior define una función llamada "imprimirDigito" que toma un parámetro entero llamado "digito". Dentro de la función, hay una instrucción de cambio que verifica el valor de "digito" y establece los pines digitales correspondientes (A, B, C, D, E, F, G) en ALTO o BAJO. Es probable que este código sea parte de un programa más grande que controla una pantalla de siete segmentos para mostrar un dígito específico según el valor de entrada.
+void imprimirDigito (int digito)
+{
+  digitalWrite(A, LOW);
+  digitalWrite(B, LOW);
+  digitalWrite(C, LOW);
+  digitalWrite(D, LOW);
+  digitalWrite(E, LOW);
+  digitalWrite(F, LOW);
+  digitalWrite(G, LOW);
+  switch (digito)
+  {
+    case 1:
+    {
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      break;
+    }
+    case 2:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(B, HIGH);
+      digitalWrite(D, HIGH);
+      digitalWrite(E, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 3:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(D, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 4:
+    {
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(F, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 5:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(D, HIGH);
+      digitalWrite(F, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 6:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(D, HIGH);
+      digitalWrite(E, HIGH);
+      digitalWrite(F, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 7:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      break;
+    }
+    case 8:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(D, HIGH);
+      digitalWrite(E, HIGH);
+      digitalWrite(F, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 9:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(F, HIGH);
+      digitalWrite(G, HIGH);
+      break;
+    }
+    case 0:
+    {
+      digitalWrite(A, HIGH);
+      digitalWrite(B, HIGH);
+      digitalWrite(C, HIGH);
+      digitalWrite(D, HIGH);
+      digitalWrite(E, HIGH);
+      digitalWrite(F, HIGH);
+      break;
+    }
+  }
+}
+
+// El código anterior es una función llamada "esPrimo" que toma un número entero como entrada y devuelve un valor booleano. Comprueba si el número dado es un número primo o no. Primero maneja algunos casos especiales donde el número es 0, 1 o 4 y devuelve false en estos casos. Luego, itera desde 2 hasta el número dado: 1 y verifica si el número es divisible por alguno de estos números. Si es divisible por cualquier número, devuelve falso. Si no es divisible por ningún número, devuelve verdadero,
+bool esPrimo(int numero) {
+  // Casos especiales
+  if (numero == 0 || numero == 1 || numero == 4) return false;
+  for (int x = 2; x < numero ; x++) {
+    if (numero % x == 0) return false;
+  }
+  // Si no se pudo dividir por ninguno de los de arriba, sí es primo
+  return true;
+}
+
+// El código anterior es una función llamada "numeroPrimoDisplay" que toma un parámetro entero llamado "numeroPrimo". Se utiliza para separar los dígitos de decenas y unidades del número ingresado y almacenarlos en dos variables separadas llamadas "contadorDecena" y "contadorUnidad".
+void numeroPrimoDisplay(int numeroPrimo)
+{
+  if (numeroPrimo < 10)
+  {
+      contadorDecena = 0;
+      contadorUnidad = numeroPrimo;
+  }
+  if (numeroPrimo > 10 && numeroPrimo < 20)
+  {
+      contadorDecena = 1;
+      contadorUnidad = numeroPrimo -10;
+  }
+  if (numeroPrimo > 20 && numeroPrimo < 30)
+  {
+      contadorDecena = 2;
+      contadorUnidad = numeroPrimo -20;
+  }
+  if (numeroPrimo > 30 && numeroPrimo < 40)
+  {
+      contadorDecena = 3;
+      contadorUnidad = numeroPrimo -30;
+  }
+  if (numeroPrimo > 40 && numeroPrimo < 50)
+  {
+      contadorDecena = 4;
+      contadorUnidad = numeroPrimo -40;
+  }
+  if (numeroPrimo > 50 && numeroPrimo < 60)
+  {
+      contadorDecena = 5;
+      contadorUnidad = numeroPrimo -50;
+  }
+  if (numeroPrimo > 60 && numeroPrimo < 70)
+  {
+      contadorDecena = 6;
+      contadorUnidad = numeroPrimo -60;
+  }
+  if (numeroPrimo > 70 && numeroPrimo < 80)
+  {
+      contadorDecena = 7;
+      contadorUnidad = numeroPrimo -70;
+  }
+  if (numeroPrimo > 80 && numeroPrimo < 90)
+  {
+      contadorDecena = 8;
+      contadorUnidad = numeroPrimo -80;
+  }
+  if (numeroPrimo > 90 && numeroPrimo < 100)
+  {
+      contadorDecena = 9;
+      contadorUnidad = numeroPrimo -90;
+  }
+}
